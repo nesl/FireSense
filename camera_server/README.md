@@ -5,10 +5,10 @@ Camera Server
 The __camera server__ takes open/close events from door sensors in NESL and snaps camera pictures for the purpose of determining how many people entered or left the lab. Pictures are taken between open and close events from the door sensors. The attached cameras must each have an accessible url that can be used to grab the latest picture off the camera.
 
 #### Table of Contents
-- [Sensor Communication](#Sensor-Communication)
-- [Data Storage](#Data-Storage)
-- [Configuration](#Configuration)
-- [Installation](#Installation)
+- [Sensor Communication](#sensor-communication)
+- [Data Storage](#data-storage)
+- [Configuration](#configuration)
+- [Installation](#installation)
 
 Sensor Communication
 ---------
