@@ -5,10 +5,10 @@ Sensor
 The __sensor__ monitors ip traffic through the pfsense firewall and reports events and periodic summaries to the __sensor server__.
 
 #### Table of Contents
-- [Operating Principles](#Operating-Principles)
-- [Configuration](#Configuration)
-- [Starting the Sensor](#Starting-the-Sensor)
-- [Installation](#Installation)
+- [Operating Principles](#operating-principles)
+- [Configuration](#configuration)
+- [Starting the Sensor](#starting-the-sensor)
+- [Installation](#installation)
 
 Operating Principles
 ----
