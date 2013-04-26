@@ -14,9 +14,9 @@ import data_managers
 # 9 tcp.flags.fin
 #10 tcp.flags.reset
 #11 http.user_agent
+#12 frame.time
 
 separator = re.compile('\|')
-
 def parse(line):
 	#split_line = re.split(separator, line)
 	split_line = line.split('|')
@@ -38,6 +38,7 @@ def parse(line):
 	#print 'tcp.fin  %s' % (split_line[9])
 	#print 'tcp.rset %s' % (split_line[10])
 	#print 'http.usr %s' % (split_line[11])
+	#print 'arr_time %s' % (split_line[12])
 
 	# Non-IP Traffic
 	if split_line[0] == "":
@@ -82,9 +83,8 @@ def tcp_parse(l):
 	except:
 		tcp_obj.reset = 0
 	tcp_obj.http_user_agent = l[11]
+	tcp_obj.time = l[12]
 	return tcp_obj
-	#tcp_tuple = l[1], l[2], l[3], l[4], l[7], l[8], l[9], l[10], l[11], l[12], l[13]
-	#return tcp_tuple
 
 def udp_parse(l):
 	udp_obj = data_managers.UDPPacket()
@@ -93,5 +93,6 @@ def udp_parse(l):
 	udp_obj.length = int(l[3])
 	udp_obj.port_source = int(l[4])
 	udp_obj.port_dest = int(l[5])
+	udp_obj.time = int(l[12])
 
 	return udp_obj

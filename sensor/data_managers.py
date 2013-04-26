@@ -22,12 +22,13 @@ class RouterManager:
 	tcp_max_in_pkt_size = 0      # Size of largest incoming TCP packet
 	udp_max_out_pkt_size = 0     # Size of largest outgoing UDP packet
 	udp_max_in_pkt_size = 0      # Size of largest incoming UDP packet
+	latest_packet_time = ""      # Arrival time of the latest packet
 
 	# Print information about this router manager
 	def printRM(self):
 		print 'PRINTING RouterManager'
 		print 'peer_list: ', self.peer_list.keys()
-		print 'peer_managers: ', self.peer_managers.values()
+		print 'peer_managers: ', self.peer_list.values()
 		print 'tcp_packet_count:  %d' % (self.tcp_packet_count)
 		print 'tcp_out_pkt_count:  %d' % (self.tcp_out_pkt_count)
 		print 'tcp_in_pkt_count:  %d' % (self.tcp_in_pkt_count)
@@ -52,7 +53,7 @@ class RouterManager:
 		s = json.dumps({
 			'Type': 'Router',
 			'Event': event,
-			'Time': str(datetime.datetime.now()),
+			'Time': self.latest_packet_time,
 			'Peers': ','.join(anon_peer_list),
 			'PeerCount': len(self.peer_list),
 			'ActivePeers': len(self.active_peers),
@@ -90,6 +91,7 @@ class RouterManager:
 		self.tcp_max_in_pkt_size = 0
 		self.udp_max_out_pkt_size = 0
 		self.udp_max_in_pkt_size = 0
+		self.latest_packet_time = 0
 		self.active_peers.clear()
 		return
 
@@ -105,25 +107,27 @@ class RouterManager:
 				self.peer_list[i].clearAllStreams()
 				self.peer_list.pop(i)
 			else:
-				td = time_now - self.peer_list[i].last_packet_time
+				td = time_now - self.peer_list[i].last_process_time
 				if td.seconds > config.PEER_TIMEOUT_S:
 					self.peer_list[i].clearAllStreams()
 					self.peer_list.pop(i)
-					print 'Peer timeout ', i
 
 	# Add a tcp packet to this router manager
 	def addTCPPacket(self, data):
-		self.tcp_packet_count += 1
+		if not data.ack:
+			self.tcp_packet_count += 1
 		local = config.localIP(data.ip_source)
 		
 		# Determine inbound/outbound traffic
 		if local:
-			self.tcp_out_pkt_count += 1
+			if not data.ack:
+				self.tcp_out_pkt_count += 1
 			if self.tcp_max_out_pkt_size < data.length:
 				self.tcp_max_out_pkt_size = data.length
 			ip = data.ip_source
 		else:
-			self.tcp_in_pkt_count += 1
+			if not data.ack:
+				self.tcp_in_pkt_count += 1
 			if self.tcp_max_in_pkt_size < data.length:
 				self.tcp_max_in_pkt_size = data.length
 			ip = data.ip_dest
@@ -135,6 +139,7 @@ class RouterManager:
 		
 		self.active_peers.add(ip)
 		self.peer_list[ip].addTCPPacket(data)
+		self.latest_packet_time = data.time
 		return
 
 	# Add a udp packet to this router manager
@@ -159,7 +164,8 @@ class RouterManager:
 			self.peer_list[ip].initialize(ip)
 		
 		self.active_peers.add(ip)
-		self.peer_managers[-1].addUDPPacket(data)
+		self.peer_list[ip].addUDPPacket(data)
+		self.latest_packet_time = data.time
 		return
 
 # Manages information gathering on the peer level
@@ -178,7 +184,8 @@ class PeerManager:
 	tcp_max_in_pkt_size = 0      # Size of largest incoming TCP packet
 	udp_max_out_pkt_size = 0     # Size of largest outgoing UDP packet
 	udp_max_in_pkt_size = 0      # Size of largest incoming UDP packet
-	last_packet_time = datetime.datetime.now() # Time of last packet
+	last_process_time = datetime.datetime.now() # Time of last packet
+	latest_packet_time = ""
 
 	# Print information about this peer manager
 	def printPM(self):
@@ -208,7 +215,7 @@ class PeerManager:
 		s = json.dumps({
 			'Type': 'Peer',
 			'Event': event,
-			'Time': str(datetime.datetime.now()),
+			'Time': self.latest_packet_time,
 			'LocalIP': ip_anonymous,
 			'TcpStats': {
 				'ActiveStreamCount': len(self.tcp_streams),
@@ -250,17 +257,17 @@ class PeerManager:
 		self.tcp_max_in_pkt_size = 0
 		self.udp_max_out_pkt_size = 0
 		self.udp_max_in_pkt_size = 0
+		self.latest_packet_time = 0
 		return
 	
 	# Clear old streams
 	def clearInactiveStreams(self):
 		time_now = datetime.datetime.now()
 		for i in self.tcp_stream_list.keys():
-			td = time_now - self.tcp_stream_list[i].last_packet_time
+			td = time_now - self.tcp_stream_list[i].last_process_time
 			if td.seconds > config.STREAM_TIMEOUT_S:
 				self.tcp_stream_list[i].removeStream('Timeout')
 				self.tcp_stream_list.pop(i)
-				print 'Stream timeout ', self.ip_local
 		return
 	
 	# Clear all streams
@@ -278,18 +285,21 @@ class PeerManager:
 
 	# Add a tcp packet to this peer manager
 	def addTCPPacket(self, data):
-		self.tcp_packet_count += 1
+		if not data.ack:
+			self.tcp_packet_count += 1
 
 		# Determine incoming/outgoing packet
 		# Find the foreign stream to match
 		if data.ip_source == self.ip_local:
 			ip_foreign = data.ip_dest
-			self.tcp_out_pkt_count += 1
+			if not data.ack:
+				self.tcp_out_pkt_count += 1
 			if self.tcp_max_out_pkt_size < data.length:
 				self.tcp_max_out_pkt_size = data.length
 		else:
 			ip_foreign = data.ip_source
-			self.tcp_in_pkt_count += 1
+			if not data.ack:
+				self.tcp_in_pkt_count += 1
 			if self.tcp_max_in_pkt_size < data.length:
 				self.tcp_max_in_pkt_size = data.length
 
@@ -309,7 +319,8 @@ class PeerManager:
 
 		# Add the stream to the set of active tcp streams
 		self.tcp_streams.add(ip_foreign)
-		self.last_packet_time = datetime.datetime.now()
+		self.last_process_time = datetime.datetime.now()
+		self.latest_packet_time = data.time
 		return
 
 	# Add a udp packet to this peer manager
@@ -329,8 +340,9 @@ class PeerManager:
 				self.udp_max_in_pkt_size = data.length
 		
 		# Add the stream to the set of active udp streams
-		self.last_packet_time = datetime.datetime.now()
+		self.last_process_time = datetime.datetime.now()
 		self.udp_streams.add(ip_foreign)
+		self.latest_packet_time = data.time
 		return
 
 # Manages information gathering on the stream level
@@ -345,7 +357,8 @@ class TCPStreamManager:
 	tcp_max_out_pkt_size = 0    # Size of largest outgoing TCP packet
 	tcp_max_in_pkt_size = 0     # Size of largest incoming TCP packet
 	http_user_agent = ""        # HTTP user agent string
-	last_packet_time = datetime.datetime.now() # Last packet time
+	last_process_time = datetime.datetime.now() # Last packet time
+	latest_packet_time = ""
 
 	# Print information about this tcp stream manager
 	def printTSM(self):
@@ -371,7 +384,7 @@ class TCPStreamManager:
 		s = json.dumps({
 			'Type': 'Stream',
 			'Event': event,
-			'Time': str(datetime.datetime.now()),
+			'Time': self.latest_packet_time,
 			'UserAgent': self.http_user_agent,
 			'LocalIP': ip_anonymous,
 			'ForeignIP': self.ip_foreign,
@@ -390,13 +403,12 @@ class TCPStreamManager:
 		return s
 
 	def clearStats(self):
-		self.local_ports.clear()
-		self.foreign_ports.clear()
 		self.tcp_packet_count = 0
 		self.tcp_out_pkt_count = 0
 		self.tcp_in_pkt_count = 0
 		self.tcp_max_out_pkt_size = 0
 		self.tcp_max_in_pkt_size = 0
+		self.latest_packet_time = 0
 		return
 
 
@@ -421,22 +433,26 @@ class TCPStreamManager:
 				# self.ip_local = data.ip_dest
 				# self.ip_foreign = data.ip_source
 
-		self.tcp_packet_count += 1
+		if not data.ack:
+			self.tcp_packet_count += 1
 
 		if data.ip_source == self.ip_local:
-			self.tcp_out_pkt_count += 1
+			if not data.ack:
+				self.tcp_out_pkt_count += 1
 			if self.tcp_max_out_pkt_size < data.length:
 				self.tcp_max_out_pkt_size = data.length
 			self.local_ports.add(data.port_source)
 			self.foreign_ports.add(data.port_dest)
 		else:
-			self.tcp_in_pkt_count += 1
+			if not data.ack:
+				self.tcp_in_pkt_count += 1
 			if self.tcp_max_in_pkt_size < data.length:
 				self.tcp_max_in_pkt_size = data.length
 			self.local_ports.add(data.port_dest)
 			self.foreign_ports.add(data.port_source)
 		
-		self.last_packet_time = datetime.datetime.now()
+		self.last_process_time = datetime.datetime.now()
+		self.latest_packet_time = data.time
 		return
 	
 	def removeStream(self, event):
@@ -450,6 +466,7 @@ class UDPPacket:
 	length = 0
 	port_source = 0
 	port_dest = 0
+	time = ""
 
 class TCPPacket:
 	ip_source = ""
@@ -461,3 +478,4 @@ class TCPPacket:
 	fin = 0
 	reset = 0
 	http_user_agent = ""
+	time = ""

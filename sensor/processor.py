@@ -22,12 +22,11 @@ stream_rep = reporter.StreamReporter(3, router)
 router_rep.start()
 peer_rep.start()
 stream_rep.start()
-
 while True:
 	# Check if input exists, wait up to timeout_s seconds
 	rlist, wlist, xlist = select.select([sys.stdin], [], [], config.INPUT_TIMEOUT_S)
 	if len(rlist) == 0: 
-		sys.exit('Error: Input Timeout ' + str(datetime.datetime.now()))
+		sys.exit('Error: Input Timeout: ' + str(datetime.datetime.now()))
 	
 	# Get and parse input
 	line = sys.stdin.readline()
@@ -37,7 +36,6 @@ while True:
 			client.send('Input Timeout ' + str(datetime.datetime.now()))
 			sys.exit('Error: Input Timeout ' + str(datetime.datetime.now()))
 		line = sys.stdin.readline()
-
 	ret = line_parser.parse(line)
 	protocol = ret[0]
 	
