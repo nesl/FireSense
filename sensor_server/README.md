@@ -5,10 +5,10 @@ Sensor Server
 The __sensor server__ receives traffic summary packets from the firewall sensor and logs the files to the correct directory.
 
 #### Table of Contents
-- [Sensor Message Format](#Sensor-Message-Format)
-- [Data Storage](#Data-Storage)
-- [Configuration](#Configuration)
-- [Installation](#Installation)
+- [Sensor Message Format](#sensor-message-format)
+- [Data Storage](#data-storage)
+- [Configuration](#configuration)
+- [Installation](#installation)
 
 Sensor Message Format
 ----
